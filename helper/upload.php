@@ -5,9 +5,41 @@ require '../vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 // Make sure the 'uploads' directory exists and is writable
-$uploadDir ='../uploads/sheets';
+$uploadDir = '../uploads/sheets';
 if (!is_dir($uploadDir)) {
     mkdir($uploadDir, 0777, true);
+}
+
+
+function getName($row)
+{
+    $product_name = "";
+    $nameKeys = ['Item Description', 'ITEM DESCRIPTION', 'DESCRIPCION', 'item description', 'DESCRIPTION']; // Add more variations as needed
+    foreach ($nameKeys as $key) {
+        
+        if (isset($row[$key]) && $row[$key] != "") {
+            $product_name = $product_name . $row[$key];
+        }
+    }
+    $additional_details = ['UNITS X BOX', 'Item size', 'Case Pack', 'Category'];
+    foreach ($additional_details as $key) {
+        if (isset($row[$key]) && $row[$key] != "") {
+            $product_name = $product_name . ' - '. $key . ' ' . $row[$key];
+        }
+    }
+    return $product_name; // Default price if not found
+}
+
+function getPricing($row)
+{
+    $priceKeys = ['unit price', 'UNIT PRICE', 'Unit Price', 'price', 'Unit Price ']; // Add more variations as needed
+    foreach ($priceKeys as $key) {
+        if (isset($row[$key]) && $row[$key] != "") {
+            print_r($key, $row[$key]);
+            return (float) str_replace("$", "", $row[$key]);
+        }
+    }
+    return 0.0; // Default price if not found
 }
 
 function insertProductData($data, $mysqli, $headers, $filename)
@@ -17,14 +49,17 @@ function insertProductData($data, $mysqli, $headers, $filename)
 
     foreach ($data as $row) {
         // Bind the data using the header keys
-        $name =  $row['ITEM DESCRIPTION'];
-        $pricing =  (float) str_replace("$", "", $row['UNIT PRICE']);
+        $name =  getName($row);
+
+        $pricing = getPricing($row);
+        print_r($row);
+        print_r($pricing);
+
         $supplier_name =  $filename;
-        $upc =  ltrim($row['UPC'],0);
+        $upc =  ltrim($row['UPC'], 0);
+
         if ($name == "" || $pricing == "") continue;
 
-        print_r($filename);
-        print_r($row);
         $stmt->bind_param('sdss', $name, $pricing, $supplier_name, $upc);
         $stmt->execute();
     }
@@ -51,59 +86,63 @@ function truncate_table($tableName)
     }
 }
 
+$filenames = $_POST['fileName'];
+$supplierNames = $_POST['supplierName'];
 
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['file']['name'] && !empty($_POST['fileName']))) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['file']['name'] && !empty($filenames))) {
 
     if ($mysqli->connect_error) {
         die('Connect Error (' . $mysqli->connect_errno . ') ' . $mysqli->connect_error);
     }
 
-    truncate_table('files');
     truncate_table('products');
+    truncate_table('files');
 
-    $filename = $_POST['fileName'];
     $count = 0;
 
     foreach ($_FILES['file']['tmp_name'] as $index => $tmpName) {
-
-        // Generate a unique file name to prevent overwriting existing files
         $originalName = $_FILES['file']['name'][$index];
         $targetFilePath = $uploadDir . '/' . basename($originalName);
+        move_uploaded_file($tmpName, $targetFilePath);
+    }
 
-        print_r($targetFilePath);
-        if (move_uploaded_file($tmpName, $targetFilePath)) {
 
-            $spreadsheet = IOFactory::load($targetFilePath);
-            $worksheet = $spreadsheet->getActiveSheet();
+    foreach ($filenames as $index => $tmpName) {
 
-            // Get headers from the first row
-            $headerRow = $worksheet->getRowIterator(1)->current();
-            $cellIterator = $headerRow->getCellIterator();
-            $cellIterator->setIterateOnlyExistingCells(true);
-            $headers = [];
-            foreach ($cellIterator as $cell) {
-                $column_heading = strtoupper($cell->getValue());
-                $headers[$column_heading] = $cell->getColumn();
-            }
+        // Generate a unique file name to prevent overwriting existing files
+        $targetFilePath = $uploadDir . '/' . $tmpName;
 
-            // Read data rows
-            $data = [];
-            foreach ($worksheet->getRowIterator(2) as $row) { // Start from the second row
-                $cellIterator = $row->getCellIterator();
-                $cellIterator->setIterateOnlyExistingCells(true);
-                $rowData = [];
-                foreach ($cellIterator as $cell) {
-                    $header = array_search($cell->getColumn(), $headers);
-                    $rowData[$header] = $cell->getValue();
-                }
-                $data[] = $rowData;
-            }
+        $spreadsheet = IOFactory::load($targetFilePath);
+        $worksheet = $spreadsheet->getActiveSheet();
 
-            insertFileData($mysqli, $filename[$count], $originalName);
-            insertProductData($data, $mysqli, $headers, $filename[$count]);
-            $count++;
+        // Get headers from the first row
+        $headerRow = $worksheet->getRowIterator(1)->current();
+        $cellIterator = $headerRow->getCellIterator();
+        $cellIterator->setIterateOnlyExistingCells(true);
+        $headers = [];
+        foreach ($cellIterator as $cell) {
+            $column_heading = strtoupper($cell->getValue());
+            $headers[trim($column_heading)] = $cell->getColumn();
         }
+
+        // Read data rows
+        $data = [];
+        foreach ($worksheet->getRowIterator(2) as $row) { // Start from the second row
+            $cellIterator = $row->getCellIterator();
+            $cellIterator->setIterateOnlyExistingCells(true);
+            $rowData = [];
+            foreach ($cellIterator as $cell) {
+                $header = array_search($cell->getColumn(), $headers);
+                $rowData[$header] = $cell->getValue();
+            }
+            $data[] = $rowData;
+        }
+
+        print_r($header, $supplierNames[$count]);
+        insertFileData($mysqli, $supplierNames[$count], $tmpName);
+        insertProductData($data, $mysqli, $headers, $supplierNames[$count]);
+        $count++;
     }
 
     $mysqli->close();
