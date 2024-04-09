@@ -41,30 +41,6 @@ $(document).ready(function () {
     });
   });
 
-  // $("#product-search").select2({
-  //   ajax: {
-  //     url: "/product-filter/helper/fetch.php",
-  //     dataType: "json",
-  //     delay: 250, // wait 250 milliseconds before triggering the request
-  //     data: function (params) {
-  //       return {
-  //         q: params.term, // search term
-  //       };
-  //     },
-  //     processResults: function (data) {
-  //       return {
-  //         results: data,
-  //       };
-  //     },
-  //     cache: true,
-  //   },
-  //   minimumInputLength: 3, // only start searching when at least 3 characters are entered
-  //   dropdownAutoWidth: true,
-  //   width: "100%",
-  //   placeholder: "Search product",
-  //   allowClear: true,
-  // });
-
   $(document).on("change", ".file-input", function () {
     var fullPath = $(this).val();
     if (fullPath) {
@@ -81,28 +57,26 @@ $(document).ready(function () {
   });
 
   $(document).on("click", ".radio-select", function () {
-    $(".radio-select:checked").each(function () {
-      var name = $(this).data("name");
-      var price = $(this).data("price");
-      var supplier = $(this).data("supplier");
-      var upc = $(this).attr("id");
-      $(this).parent().find(".clear-btn").show();
+    var name = $(this).data("name");
+    var price = $(this).data("price");
+    var supplier = $(this).data("supplier");
+    var upc = $(this).data("upc");
+    $(this).parent().find(".clear-btn").show();
 
-      console.log(name, price, supplier, upc);
+    console.log(name, price, supplier, upc);
 
-      $.ajax({
-        url: "/product-filter/helper/orders.php",
-        type: "POST",
-        data: { name, price, supplier, upc },
-        success: function (response) {
-          alert("Iten added successfully");
-          console.log(response);
-        },
-        error: function (e) {
-          console.log(e);
-          alert("Error uploading files");
-        },
-      });
+    $.ajax({
+      url: "/product-filter/helper/orders.php",
+      type: "POST",
+      data: { name, price, supplier, upc },
+      success: function (response) {
+        alert("Iten added successfully");
+        console.log(response);
+      },
+      error: function (e) {
+        console.log(e);
+        alert("Error uploading files");
+      },
     });
   });
 
@@ -116,9 +90,12 @@ $(document).ready(function () {
   });
 
   $("#productsTable").DataTable({
-    "processing": true,    // Show processing indicator
-    "serverSide": true,    // Enable server-side processing
-    ajax: "/product-filter/helper/fetch-product-data.php",
+    processing: true, // Show processing indicator
+    serverSide: true, // Enable server-side processing
+    ajax: {
+      url: "/product-filter/helper/fetch-product-data.php",
+      type: "GET",
+    },
     columns: [
       {
         data: "image",
@@ -134,13 +111,15 @@ $(document).ready(function () {
         render: function (data, type, full, meta) {
           var priceSuppliers = data.split(",");
           var html = "";
+          var count = 0;
           priceSuppliers.forEach(function (ps) {
             var parts = ps.split(" - ");
             var price = parseFloat(parts[0]).toFixed(2);
             var supplier = parts[1];
-            html += `<input type="radio" class="radio-select" id="${full.upc}" name="${full.upc}" data-price=${price} data-supplier=${supplier} data-name="${full.name}" data-supplier="${supplier}"> 
-            <label for="${full.upc}">$${price} - ${supplier} </label>
+            html += `<input type="radio" class="radio-select" data-upc="${full.upc}" id="${full.upc}${count}" name="${full.upc}" data-price=${price} data-supplier="${supplier}" data-name="${full.name}"> 
+            <label for="${full.upc}${count}">$${price} - ${supplier} </label>
             <br>`;
+            count++;
           });
           html += `<button class="clear-btn btn-danger btn" style='display:none'>Clear</button>`;
           return html;
@@ -150,26 +129,56 @@ $(document).ready(function () {
     paging: true,
     searching: true,
     pageLength: 250,
-    "bLengthChange" : false,
-    });
+  });
 
-    $('.deleteBtn').click(function() {
-      var upc = $(this).data('upc');
-      if (confirm('Are you sure you want to delete this order?')) {
-          $.ajax({
-              url: '/product-filter/helper/delete-order.php',
-              type: 'POST',
-              data: {
-                  'UPC': upc
-              },
-              success: function(response) {
-                  // Refresh the page to reflect the deletion
-                  location.reload();
-              },
-              error: function() {
-                  alert('Error deleting order.');
-              }
-          });
-      }
+  $(".deleteBtn").click(function () {
+    var upc = $(this).data("upc");
+    if (confirm("Are you sure you want to delete this order?")) {
+      $.ajax({
+        url: "/product-filter/helper/delete-order.php",
+        type: "POST",
+        data: {
+          UPC: upc,
+        },
+        success: function (response) {
+          // Refresh the page to reflect the deletion
+          location.reload();
+        },
+        error: function () {
+          alert("Error deleting order.");
+        },
+      });
+    }
+  });
+
+  let offset = 0;
+  const limit = 40; // Number of images to load each time
+
+  function loadImages() {
+    $.ajax({
+      url: "/product-filter/helper/load-images.php", // PHP file to load images
+      type: "POST",
+      data: {
+        offset: offset,
+        limit: limit,
+      },
+      success: function (data) {
+        $("#image-gallery").append(data);
+        offset += limit;
+      },
+    });
+  }
+
+  // Load initial set of images
+  loadImages();
+
+  // Load more images on scroll
+  $(window).scroll(function () {
+    if (
+      $(window).scrollTop() + $(window).height() >
+      $(document).height() - 100
+    ) {
+      loadImages();
+    }
   });
 });

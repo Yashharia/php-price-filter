@@ -1,6 +1,10 @@
-<?php include 'header.php'; ?>
+<?php 
+require './vendor/autoload.php';
 
-<div class="container">
+include 'header.php';
+include './helper/create-order.php'; ?>
+
+<div class="container mt-3">
     <?php if ($mysqli->connect_error) {
         die("Connection failed: " . $mysqli->connect_error);
     }
@@ -20,6 +24,8 @@
 
         // Display the orders in separate tables grouped by supplier_name
         foreach ($ordersGroupedBySupplier as $supplierName => $orders) {
+
+            $upcs = [];
             echo "<h2>" . htmlspecialchars($supplierName) . "</h2>";
             echo "<table border='1' class='table'>";
             echo "<tr><th>Name</th><th>Price</th><th>Supplier Name</th><th>UPC</th></tr>";
@@ -31,8 +37,18 @@
                 echo "<td>" . htmlspecialchars($order['upc']) . "</td>";
                 echo "<td><button class='deleteBtn btn-danger btn' data-upc='" . htmlspecialchars($order['upc']) . "'>X</button></td>";
                 echo "</tr>";
+                array_push($upcs, $order['upc']);
             }
-            echo "</table><br>";
+            echo "</table>";
+            $sql = "SELECT filepath FROM files WHERE name = '".$supplierName."'";
+            $result = $mysqli->query($sql);
+            if ($result->num_rows > 0) {
+                // Output data of each row
+                while ($row = $result->fetch_assoc()) {
+                    $downloadLink = createOrderSheet($row["filepath"], $upcs);
+                    echo "<a href='" . $downloadLink . "' class='btn btn-primary'>Download file</a><br><br>";
+                }
+            }
         }
     } else {
         echo "No orders found.";
@@ -41,10 +57,5 @@
     // Close the connection
     $mysqli->close(); ?>
 </div>
-<?php include 'footer.php';  ?>
 
-<script>
-    $(document).ready(function() {
-       
-    });
-</script>
+<?php include 'footer.php';  ?>

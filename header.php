@@ -25,6 +25,9 @@
                 <li class="nav-item">
                     <a class="nav-link" href="./orders.php">Orders</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="./image-list.php">Images</a>
+                </li>
             </ul>
         </div>
     </nav>
