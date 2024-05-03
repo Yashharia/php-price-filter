@@ -35,7 +35,7 @@ function createOrderSheet($fileName, $upcToKeep)
 
     if ($upcColumn === null) {
         echo "UPC column not found.";
-        exit;
+        return "";
     }
 
     // Filter rows based on UPC values

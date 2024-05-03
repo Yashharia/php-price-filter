@@ -4,7 +4,7 @@ require './vendor/autoload.php';
 include 'header.php';
 include './helper/create-order.php'; ?>
 
-<div class="container mt-3">
+<div class="container mt-3 main-container">
     <?php
     // SQL to get all rows from the orders table
     $sql = "SELECT * FROM orders ORDER BY supplier_name";

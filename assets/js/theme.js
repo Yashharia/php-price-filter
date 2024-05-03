@@ -216,10 +216,16 @@ $(document).ready(function () {
       url: current_website +"helper/server.php", // Adjust to the path of your server file
       type: "POST",
       data: { action: "updateQty", id: id, qty: qty },
+      beforeSend: function(){
+        $(".main-container").addClass("loading");
+        console.log('add class')
+      },
       success: function (response) {
         alert("Quantity updated");
+        $(".main-container").removeClass("loading");
       },
       error: function () {
+        $(".main-container").removeClass("loading");
         console.log("Error updating quantity");
       },
     });
