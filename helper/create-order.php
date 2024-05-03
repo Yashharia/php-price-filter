@@ -29,7 +29,7 @@ function createOrderSheet($fileName, $upcToKeep)
                 }
             }
             $filteredRows[] = $headerRow; // Add header row to the filtered data
-            break; // Exit loop after processing header row
+            break;
         }
     }
 

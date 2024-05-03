@@ -25,14 +25,45 @@ $(document).ready(function () {
     var formData = new FormData(this);
 
     $.ajax({
-      url: "/product-filter/helper/upload.php",
+      url: current_website + "helper/upload.php",
       type: "POST",
       data: formData,
       contentType: false,
       processData: false,
+      beforeSend: function () {
+        $(".main-container").addClass("loading");
+      },
       success: function (response) {
         alert("Files uploaded successfully");
         console.log(response);
+        $(".main-container").removeClass("loading");
+
+        // location.reload();
+      },
+      error: function (e) {
+        console.log(e);
+        alert("Error uploading files");
+      },
+    });
+  });
+
+  $("#fieldForm").submit(function (e) {
+    e.preventDefault();
+    var formData = new FormData(this);
+
+    $.ajax({
+      url: current_website + "helper/uploadFields.php",
+      type: "POST",
+      data: formData,
+      contentType: false,
+      processData: false,
+      beforeSend: function () {
+        $(".main-container").addClass("loading");
+      },
+      success: function (response) {
+        alert("Files uploaded successfully");
+        console.log(response);
+        $(".main-container").removeClass("loading");
       },
       error: function (e) {
         console.log(e);
@@ -57,20 +88,16 @@ $(document).ready(function () {
   });
 
   $(document).on("click", ".radio-select", function () {
-    var name = $(this).data("name");
-    var price = $(this).data("price");
-    var supplier = $(this).data("supplier");
     var upc = $(this).data("upc");
-    $(this).parent().find(".clear-btn").show();
-
-    console.log(name, price, supplier, upc);
+    var supplier_name = $(this).data("supplier_name");
+    $(this).closest("td").find(".clear-btn").show();
 
     $.ajax({
-      url: "/product-filter/helper/orders.php",
+      url: current_website + "helper/create-orders.php",
       type: "POST",
-      data: { name, price, supplier, upc },
+      data: { upc, supplier_name },
       success: function (response) {
-        alert("Iten added successfully");
+        alert("Item added successfully");
         console.log(response);
       },
       error: function (e) {
@@ -92,16 +119,16 @@ $(document).ready(function () {
   $("#productsTable").DataTable({
     processing: true, // Show processing indicator
     serverSide: true, // Enable server-side processing
+    bLengthChange: false,
     ajax: {
-      url: "/product-filter/helper/fetch-product-data.php",
+      url: current_website + "helper/fetch-product-data.php",
       type: "GET",
     },
     columns: [
       {
         data: "image",
         render: function (data, type, row) {
-          return "<p></p>";
-          // return '<img src="' + data + '" class="product-img"/>';
+          return '<img src="' + data + '" class="product-img"/>';
         },
       },
       { data: "name" },
@@ -109,6 +136,7 @@ $(document).ready(function () {
       {
         data: "price_supplier",
         render: function (data, type, full, meta) {
+          console.log(data);
           var priceSuppliers = data.split(",");
           var html = "";
           var count = 0;
@@ -116,8 +144,8 @@ $(document).ready(function () {
             var parts = ps.split(" - ");
             var price = parseFloat(parts[0]).toFixed(2);
             var supplier = parts[1];
-            html += `<input type="radio" class="radio-select" data-upc="${full.upc}" id="${full.upc}${count}" name="${full.upc}" data-price=${price} data-supplier="${supplier}" data-name="${full.name}"> 
-            <label for="${full.upc}${count}">$${price} - ${supplier} </label>
+            html += `<div class="radio-select-wrapper"><input type="radio" class="radio-select" data-upc="${full.upc}" data-supplier_name="${full.supplier_name}" id="${full.upc}${count}" name="${full.upc}" data-name="${full.name}"> 
+            <label for="${full.upc}${count}">${ps} </label></div>
             <br>`;
             count++;
           });
@@ -129,16 +157,25 @@ $(document).ready(function () {
     paging: true,
     searching: true,
     pageLength: 250,
+    initComplete: function (settings, json) {
+      // Example: Bind a click event to all radio buttons in the table
+      $("#productsTable").on("click", ".radio-select", function () {
+        alert("Radio button for " + $(this).data("name") + " clicked!");
+      });
+    },
   });
 
   $(".deleteBtn").click(function () {
     var upc = $(this).data("upc");
+    var supplier_name = $(this).data("supplier_name");
     if (confirm("Are you sure you want to delete this order?")) {
       $.ajax({
-        url: "/product-filter/helper/delete-order.php",
+        url: current_website + "helper/server.php",
         type: "POST",
         data: {
-          UPC: upc,
+          action: "deleteOrder",
+          upc: upc,
+          supplier_name: supplier_name,
         },
         success: function (response) {
           // Refresh the page to reflect the deletion
@@ -156,7 +193,7 @@ $(document).ready(function () {
 
   function loadImages() {
     $.ajax({
-      url: "/product-filter/helper/load-images.php", // PHP file to load images
+      url: current_website + "helper/load-images.php", // PHP file to load images
       type: "POST",
       data: {
         offset: offset,
@@ -169,16 +206,35 @@ $(document).ready(function () {
     });
   }
 
+  //update orders qty
+  $(".order-qty-update").on("change", function () {
+    var id = $(this).data("id");
+    var qty = $(this).val();
+    console.log('qty-field');
+
+    $.ajax({
+      url: current_website +"helper/server.php", // Adjust to the path of your server file
+      type: "POST",
+      data: { action: "updateQty", id: id, qty: qty },
+      success: function (response) {
+        alert("Quantity updated");
+      },
+      error: function () {
+        console.log("Error updating quantity");
+      },
+    });
+  });
+
   // Load initial set of images
-  loadImages();
+  // loadImages();
 
   // Load more images on scroll
-  $(window).scroll(function () {
-    if (
-      $(window).scrollTop() + $(window).height() >
-      $(document).height() - 100
-    ) {
-      loadImages();
-    }
-  });
+  // $(window).scroll(function () {
+  //   if (
+  //     $(window).scrollTop() + $(window).height() >
+  //     $(document).height() - 100
+  //   ) {
+  //     loadImages();
+  //   }
+  // });
 });

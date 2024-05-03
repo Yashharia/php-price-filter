@@ -16,7 +16,8 @@ $sql = "
 SELECT 
     p.name, 
     p.upc, 
-    GROUP_CONCAT(CONCAT(p.price, ' - ', p.supplier_name) ORDER BY p.price ASC) as price_supplier
+    p.supplier_name,
+    GROUP_CONCAT(CONCAT('Unit price : ',p.currency , p.price , '<br> Case price : ',p.currency , p.case_price , '<br>' , p.supplier_name) ORDER BY p.price ASC) as price_supplier
 FROM 
     products p
 WHERE 
@@ -39,11 +40,11 @@ $result = $stmt->get_result();
 $data = [];
 while ($row = $result->fetch_assoc()) {
     $data[] = [
-        'test' => 'test',
         'name' => $row['name'],
         'upc' => $row['upc'],
+        'supplier_name' => $row['supplier_name'],
         'price_supplier' => $row['price_supplier'],
-        'image' => './uploads/' . $row["upc"] . '.jpg'
+        'image' => './uploads/' . $row["upc"] . '.jpg',
     ];
 }
 
@@ -54,7 +55,7 @@ $totalRecordsRow = $totalRecordsResult->fetch_assoc();
 $totalRecords = $totalRecordsRow['total'];
 
 // Query to get the total count of filtered records
-if($searchPattern){
+if ($searchPattern) {
     $totalFilteredRecordsQuery = "SELECT COUNT(DISTINCT upc) AS total FROM products WHERE name LIKE ? OR upc LIKE ?";
     $stmt = $mysqli->prepare($totalFilteredRecordsQuery);
     $stmt->bind_param('ss', $searchPattern, $searchPattern);
@@ -62,14 +63,13 @@ if($searchPattern){
     $totalFilteredRecordsResult = $stmt->get_result();
     $totalFilteredRecordsRow = $totalFilteredRecordsResult->fetch_assoc();
     $totalFilteredRecords = $totalFilteredRecordsRow['total'];
-}else{
+} else {
     $totalFilteredRecords = $totalRecords;
 }
 
 echo json_encode([
-    'test' => 'test',
     "draw" => intval($_GET['draw']),
-    "recordsTotal" => intval($totalRecords) ,
+    "recordsTotal" => intval($totalRecords),
     "recordsFiltered" => intval($totalFilteredRecords),
     "data" => $data
 ]);
